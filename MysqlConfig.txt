@@ -1,0 +1,6 @@
+ip:127.0.0.1
+user:root
+password:Wxwklyxjtwdy666
+usedb:gin_gorm_oj
+arg:charset=utf8mb4&parseTime=True&loc=Local
+test:
