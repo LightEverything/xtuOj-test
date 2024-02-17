@@ -1,11 +1,15 @@
 package server
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"xtuOj/define"
+	"xtuOj/execode"
+	"xtuOj/helper"
 	"xtuOj/models"
 )
 
@@ -59,5 +63,85 @@ func GetSubmitList(c *gin.Context) {
 			"count": count,
 			"list":  data,
 		},
+	})
+}
+
+// Submit
+// @Tags 用户私有方法
+// @Summary 代码提交
+// @Param Authorization header string true "token"
+// @Param problem_identity query string true "problem_identity"
+// @Param code body string true "code"
+// @Success 200 {string} json "{"code":"200", "data":""}"
+// @Router /user/submit [post]
+func Submit(c *gin.Context) {
+	// 获取参数
+	problem_identity := c.Query("problem_identity")
+	code, err := io.ReadAll(c.Request.Body)
+
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "获取body失败",
+		})
+
+		log.Println("get submit body error :", err)
+		return
+	}
+
+	// 创建代码保存路径
+	path, err := helper.SaveCode(code)
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "服务器错误",
+		})
+
+		log.Println("saveCode error : ", err)
+		return
+	}
+
+	// 获取上下文信息
+	identity, _ := helper.GetUuid()
+	user, _ := c.Get("user")
+	uc := user.(*helper.UserClaims)
+
+	submitSt := models.Submit{
+		Identity:        identity,
+		ProblemIdentity: problem_identity,
+		UserIdentity:    uc.Identity,
+		Path:            path,
+	}
+
+	// 执行代码判断
+	data, err := models.GetProblemDetail(problem_identity)
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "服务器错误",
+		})
+		log.Println("getTestCase error:", err)
+		return
+	}
+
+	er := execode.ExeCode(context.Background(), data, path)
+
+	submitSt.Status = er.Status
+
+	// 创建新的提交记录
+	if err := models.CreateSubmission(&submitSt, data, problem_identity); err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "服务器错误",
+		})
+		log.Println("create submission error:", err)
+		return
+	}
+
+	// 返回对应信息
+	c.JSON(http.StatusOK, &gin.H{
+		"code":   200,
+		"msg":    er.Msg,
+		"status": er.Status,
 	})
 }

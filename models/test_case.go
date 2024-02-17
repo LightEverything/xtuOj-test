@@ -13,3 +13,8 @@ type TestCase struct {
 func (t *TestCase) TableName() string {
 	return "test_case"
 }
+func GetTestCaseByProblem(problemIdentity string) (data []*TestCase, err error) {
+	data = make([]*TestCase, 0)
+	err = DB.Table("test_case").Where("problem_identity=?", problemIdentity).Find(&data).Error
+	return data, err
+}

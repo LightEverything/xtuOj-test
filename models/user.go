@@ -7,14 +7,14 @@ import (
 
 type User struct {
 	gorm.Model
-	Identity         string `gorm:"type:varchar(45);column:identity;" json:"identity"`
-	Name             string `gorm:"type:varchar(255);column:name;" json:"name"`
-	Password         string `gorm:"type:varchar(255);column:password;" json:"password"`
-	Phone            string `gorm:"type:varchar(20);column:phone;" json:"phone"`
-	Mail             string `gorm:"type:varchar(100);column:mail;" json:"mail"`
-	FinishProblemNum int64  `gorm:"type:int;column:finish_problem_num;" json:"finish_problem_num"`
-	SubmitNum        int64  `gorm:"type:int;column:submit_num;" json:"submit_num"`
-	IsAdmin          int    `gorm:"type:tinyint;column:is_admin" json:"is_admin"`
+	Identity  string `gorm:"type:varchar(45);column:identity;" json:"identity"`
+	Name      string `gorm:"type:varchar(255);column:name;" json:"name"`
+	Password  string `gorm:"type:varchar(255);column:password;" json:"password"`
+	Phone     string `gorm:"type:varchar(20);column:phone;" json:"phone"`
+	Mail      string `gorm:"type:varchar(100);column:mail;" json:"mail"`
+	PassNum   int64  `gorm:"type:int;column:pass_num;" json:"pass_num"`
+	SubmitNum int64  `gorm:"type:int;column:submit_num;" json:"submit_num"`
+	IsAdmin   int    `gorm:"type:tinyint;column:is_admin" json:"is_admin"`
 }
 
 func (u *User) TableName() string {

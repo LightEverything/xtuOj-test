@@ -129,3 +129,25 @@ func GetDataFromConfigFile(path string) (result map[string]string) {
 	}
 	return result
 }
+
+// 保存代码
+func SaveCode(code []byte) (path string, e error) {
+	// 新建路径
+	uuidPath, _ := GetUuid()
+	dirname := "./code/" + uuidPath
+	err := os.Mkdir(dirname, 0777)
+	if err != nil {
+		return "", err
+	}
+
+	// 新建文件
+	path = dirname + "/main.go"
+	f, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+
+	f.Write(code)
+	defer f.Close()
+	return path, nil
+}

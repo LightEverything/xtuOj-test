@@ -7,14 +7,14 @@ import (
 type Problem struct {
 	gorm.Model
 	Identity         string             `gorm:"type:varchar(45);column:identity;" json:"identity"`
-	ProblemCategorys []*ProblemCategory `gorm:"foreignKey:problem_id;reference:id"`
-	//Cid        string `gorm:"type:varchar(45);column:cid;" json:"cid"`
-	Title      string      `gorm:"type:varchar(255);column:title;" json:"title"`
-	Content    string      `gorm:"type:text;column:content;" json:"content"`
-	PassNum    uint        `gorm:"type:int unsigned;column:pass_num;" json:"pass_num"`
-	MaxRuntime int         `gorm:"type:int;column:max_runtime" json:"max_runtime"`
-	MaxMem     int         `gorm:"type:int;column:max_mem" json:"max_mem"`
-	TestCases  []*TestCase `gorm:"foreignKey:problem_identity;reference:identity;"`
+	ProblemCategorys []*ProblemCategory `gorm:"foreignKey:problem_id;references:id" json:"problem_categories"`
+	Title            string             `gorm:"type:varchar(255);column:title;" json:"title"`
+	Content          string             `gorm:"type:text;column:content;" json:"content"`
+	PassNum          uint               `gorm:"type:int unsigned;column:pass_num;" json:"pass_num"`
+	SubmitNum        int64              `gorm:"type:int;column:submit_num;" json:"submit_num"`
+	MaxRuntime       int                `gorm:"type:int;column:max_runtime" json:"max_runtime"`
+	MaxMem           int                `gorm:"type:int;column:max_mem" json:"max_mem"`
+	TestCases        []*TestCase        `gorm:"foreignKey:problem_identity;references:identity;" json:"test_cases"`
 }
 
 func (p *Problem) TableName() string {
@@ -36,16 +36,17 @@ func GetProblemList(offset, siz int, keyword, categoryIdentity string) (data []P
 			Where("pc.category_id IN (SELECT id FROM category cg WHERE cg.identity = ?)", categoryIdentity)
 	}
 
-	e = tx.Preload("ProblemCategorys").Preload("ProblemCategorys.Category").Find(&data).Error
+	e = tx.Preload("ProblemCategorys").Preload("ProblemCategorys.CategoryDetail").Find(&data).Error
 
 	return data, count, e
 }
 
+// 获取问题详细信息
 func GetProblemDetail(identity string) (data []Problem, e error) {
 	data = make([]Problem, 0)
 	// 预加载
-	DB.Preload("ProblemCategorys").Preload("ProblemCategorys.Category")
-	if err := DB.Where("identity=?", identity).First(&data).Error; err != nil {
+	tx := DB.Preload("ProblemCategorys").Preload("ProblemCategorys.CategoryDetail").Preload("TestCases")
+	if err := tx.Where("identity=?", identity).First(&data).Error; err != nil {
 		return nil, err
 	}
 
@@ -56,4 +57,39 @@ func CreateProblem(data *Problem) (e error) {
 	e = DB.Table("problem").Create(data).Error
 
 	return e
+}
+
+// 修改问题的事务函数
+func UpdateProblemTransaction(data *Problem) func(*gorm.DB) error {
+	return func(tx *gorm.DB) error {
+		// 更新分类表
+		// 1. 删除原来的关联表
+		if err := tx.Table("problem_category").Where("problem_id IN (SELECT id FROM problem "+
+			"WHERE identity=?)", data.Identity).Delete(&ProblemCategory{}).Error; err != nil {
+			return err
+		}
+
+		// 更新测试集表
+		// 1. 删除原有的测试集
+		if err := tx.Table("test_case").Where("problem_identity=?", data.Identity).Delete(&TestCase{}).Error; err != nil {
+			return err
+		}
+
+		// 更新问题表
+		if err := tx.Table("problem").Updates(data).Error; err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func UpdateProblem(data *Problem) error {
+	return DB.Transaction(UpdateProblemTransaction(data))
+}
+
+func GetProblemId(identity string) (id uint, e error) {
+	data := &Problem{}
+	e = DB.Table("problem").Where("identity=?", identity).First(data).Error
+
+	return data.ID, e
 }

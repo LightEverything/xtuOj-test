@@ -1,6 +1,8 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type Submit struct {
 	gorm.Model
@@ -36,4 +38,34 @@ func GetSubmitList(offset, size int, problemIdentity, userIdentity string, statu
 
 	e = tx.Count(&count).Find(&st).Error
 	return st, count, e
+}
+
+func CreateSubmission(data *Submit, pb []Problem, identity string) error {
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		// 更新提交记录
+		if e := DB.Table("submit").Create(data).Error; e != nil {
+			return e
+		}
+		// 更新用户信息
+		exp := make(map[string]interface{})
+		exp["submit_num"] = gorm.Expr("submit_num + ?", 1)
+		if data.Status == 1 {
+			exp["pass_num"] = gorm.Expr("pass_num + ?", 1)
+		}
+
+		if e := DB.Table("user").Where("identity=?", identity).Updates(exp).Error; e != nil {
+			return e
+		}
+
+		// 更新题目信息
+		if e := DB.Table("problem").Where("identity=?", pb[0].Identity).Updates(exp).Error; e != nil {
+			return e
+		}
+		return nil
+
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

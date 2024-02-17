@@ -42,8 +42,25 @@ func Router() *gin.Engine {
 		*********************************************************
 	*/
 
-	r.POST("/problem-create", middleware.CheckAuthAdmin(), server.CreateProblem)
-	r.GET("/category-list", middleware.CheckAuthAdmin(), server.GetCategoryList)
+	GroupAdmin := r.Group("/admin", middleware.CheckAuthAdmin())
+	{
+		// 创建问题
+		GroupAdmin.POST("/problem-create", server.CreateProblem)
+		GroupAdmin.PUT("/problem-update", server.UpdateProblem)
+		// 获取相关列表
+		GroupAdmin.GET("/category-list", server.GetCategoryList)
+		// 删除相关分类
+		GroupAdmin.DELETE("/category-delete", server.DeleteCategory)
+		// 修改相关分类
+		GroupAdmin.PUT("/category-update", server.UpdateCategory)
+		// 创建相关分类
+		GroupAdmin.POST("/category-create", server.CreateCategory)
+	}
+
+	GroupUser := r.Group("/user", middleware.CheckUser())
+	{
+		GroupUser.POST("/submit", server.Submit)
+	}
 
 	return r
 }

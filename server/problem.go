@@ -167,14 +167,13 @@ func dealTestCases(testCases []string, data *models.Problem) ([]*models.TestCase
 // @Param content formData string true "内容"
 // @Param max_runtime formData int true "max_runtime"
 // @Param max_mem formData int true "max_mem"
-// @Param category_ids formData array false "标签"
-// @Param test_cases formData array true "test_cases"
+// @Param category_ids formData []string false "标签" collectionFormat(multi)
+// @Param test_cases formData []string true "test_cases" collectionFormat(multi)
 // @Success 200 {string} json "{"code":"200", "data":""}"
-// @Router /problem-create [post]
+// @Router /admin/problem-create [post]
 func CreateProblem(c *gin.Context) {
 	// 获取相关参数
 	title := c.PostForm("title")
-	//token := c.PostForm("token")
 	content := c.PostForm("content")
 	maxRuntime, _ := strconv.Atoi(c.PostForm("max_runtime"))
 	maxMem, _ := strconv.Atoi(c.PostForm("max_mem"))
@@ -188,6 +187,7 @@ func CreateProblem(c *gin.Context) {
 			"msg":  "参数设置错误",
 		})
 		log.Println("参数设置失败(有必填参数为空)")
+		return
 	}
 
 	// 获取uuid
@@ -251,5 +251,104 @@ func CreateProblem(c *gin.Context) {
 		"data": gin.H{
 			"identity": data.Identity,
 		},
+	})
+}
+
+// UpdateProblem
+// @Tags 私有方法
+// @Summary 修改问题
+// @Param Authorization header string true "token"
+// @Param title formData string true "标题"
+// @Param identity formData string true "identity"
+// @Param content formData string true "内容"
+// @Param max_runtime formData int true "max_runtime"
+// @Param max_mem formData int true "max_mem"
+// @Param category_ids formData []string false "标签" collectionFormat(multi)
+// @Param test_cases formData []string true "test_cases" collectionFormat(multi)
+// @Success 200 {string} json "{"code":"200", "data":""}"
+// @Router /admin/problem-update [put]
+func UpdateProblem(c *gin.Context) {
+	// 获取相关参数
+	title := c.PostForm("title")
+	content := c.PostForm("content")
+	maxRuntime, _ := strconv.Atoi(c.PostForm("max_runtime"))
+	maxMem, _ := strconv.Atoi(c.PostForm("max_mem"))
+	identity := c.PostForm("identity")
+
+	testCases := c.PostFormArray("test_cases")
+	categoryIds := c.PostFormArray("category_ids")
+
+	if title == "" || content == "" || len(categoryIds) == 0 || len(testCases) == 0 {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "参数设置错误",
+		})
+		log.Println("参数设置失败(有必填参数为空)")
+		return
+	}
+
+	// 根据参数创建一个对应的Problem struct
+	// 1. 获取id
+	dataid, err := models.GetProblemId(identity)
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "服务器错误",
+		})
+
+		log.Println("UpdateProblem database error:", err)
+		return
+	}
+
+	// 2. 填充基本参数
+	data := models.Problem{
+		Identity:   identity,
+		Title:      title,
+		Content:    content,
+		MaxRuntime: maxRuntime,
+		MaxMem:     maxMem,
+	}
+
+	data.ID = dataid
+
+	// 3. 填充数组参数
+	categoryArray, err := dealCategoryIds(categoryIds, &data)
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "参数错误",
+		})
+		log.Println("获取categoryArray错误：", err)
+		return
+	}
+	data.ProblemCategorys = categoryArray
+
+	testCaseArray, err := dealTestCases(testCases, &data)
+
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "参数错误",
+		})
+		log.Println("获取testCaseArray错误：", err)
+		return
+	}
+	data.TestCases = testCaseArray
+
+	// 链接数据库更新问题
+	err = models.UpdateProblem(&data)
+	if err != nil {
+		c.JSON(http.StatusOK, &gin.H{
+			"code": -1,
+			"msg":  "服务器错误",
+		})
+		log.Println("updateProblem database error:", err)
+		return
+	}
+
+	//返回正确值
+	c.JSON(http.StatusOK, &gin.H{
+		"code": 200,
+		"msg":  "更新成功",
 	})
 }
